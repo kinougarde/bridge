@@ -25,14 +25,13 @@ No Figma MCP transport detected. Configure one of these:
 
 Option A — figma-console-mcp (recommended, full Plugin API access):
   claude mcp add figma-console -s user -e FIGMA_ACCESS_TOKEN=figd_YOUR_TOKEN -- npx -y figma-console-mcp@latest
-  Many conversations open at once? Use the shared setup instead (Section H).
 
 Option B — Official Figma MCP (cloud-based, cross-library search):
   Configure via Claude settings or Figma's MCP integration.
 ```
 
-The Bridge plugin does not start figma-console itself: the user installs it once,
-in the setup that fits how they work (Section H).
+In Claude Code the Bridge plugin already provides the console transport, shared
+by every conversation (Section H); Option A is for clients without the plugin.
 
 ---
 
@@ -219,78 +218,34 @@ These tools are only available on the official transport and provide additional 
 
 ---
 
-## H. Setting Up figma-console
+## H. How the Plugin Runs figma-console
 
 Every figma-console process binds one port of 9223–9232 when it starts, whether
 or not the conversation ever touches Figma, and keeps it until it exits. The
-Desktop Bridge plugin's manifest only reaches that range. So the number of
-processes is what matters, and it depends on where the server is configured:
+Desktop Bridge plugin's manifest only reaches that range. Started once per
+conversation, ten open conversations fill it, and any other local tool that
+serves the plugin finds no port.
 
-| Setup | Fits | Ports taken in 9223–9232 |
-|---|---|---|
-| Per conversation (stdio, `-s user`) | A few conversations at a time | One per open conversation |
-| Per project (stdio, `-s local` or `-s project`) | Figma work lives in a few repos | One per open conversation in those repos |
-| Shared (HTTP) | Many conversations open, or another local tool needs a port in the range | One in total |
+So the plugin does not start figma-console per conversation. It starts
+`bin/figma-console-relay.js`, which binds no port and forwards the conversation
+to **one figma-console shared by every conversation**:
 
-When the range is full, a new figma-console evicts the least recently used
-sibling (idle for two minutes or more), but any other tool that serves the
-plugin on the range simply finds no port.
+- The first conversation that needs it starts it — detached, so it outlives
+  that conversation — with MCP over HTTP on `127.0.0.1:9300`
+  (figma-console-mcp ≥ 1.44, `FIGMA_MCP_HTTP_PORT`). The others reuse it. A
+  lock in the temp directory makes conversations opened at the same moment
+  start it once.
+- However many conversations are open, it takes one port of the range.
+- figma-console closes sessions idle for 30 minutes, and the server can be
+  restarted; the relay then replays the conversation's `initialize` and resends
+  the message, so the conversation does not notice.
+- Its log is `bridge-figma-console.log` in the temp directory, rewritten at
+  each start. To stop it, end the `node` process whose command line ends in
+  `figma-console-relay.js --serve`; the next conversation starts a new one.
+- `BRIDGE_FIGMA_HTTP_PORT` moves the HTTP port. It must sit outside 9223–9232
+  and must not be 3845 (Figma's Dev Mode MCP server).
 
-Configure it in one place only. Two entries that both start it — say one in
-user scope and one under another name in a project's `.mcp.json` — each start
-a process, and that conversation takes two ports.
-
-### Per conversation / per project
-
-```
-claude mcp add figma-console -s user -e FIGMA_ACCESS_TOKEN=figd_YOUR_TOKEN -- npx -y figma-console-mcp@latest
-```
-
-For per project, run it from the repo with `-s local` (private) or `-s project`
-(committed in `.mcp.json`) instead of `-s user`.
-
-### Shared (figma-console-mcp ≥ 1.44)
-
-One long-lived server also serves MCP over HTTP; conversations connect to it
-instead of starting their own.
-
-1. Start it outside Claude Code, so it outlives conversations. It exits as soon
-   as its standard input closes, so it needs a console attached.
-
-   macOS / Linux — in a terminal kept open:
-
-   ```
-   FIGMA_MCP_HTTP_PORT=9300 npx -y figma-console-mcp@latest
-   ```
-
-   Windows — at every logon, without a window (`conhost --headless` supplies
-   the console):
-
-   ```powershell
-   $startup = [Environment]::GetFolderPath('Startup')
-   $lnk = (New-Object -ComObject WScript.Shell).CreateShortcut("$startup\figma-console-shared.lnk")
-   $lnk.TargetPath = "$env:WINDIR\System32\conhost.exe"
-   $lnk.Arguments  = '--headless cmd.exe /c "set FIGMA_MCP_HTTP_PORT=9300&& npx -y figma-console-mcp@latest"'
-   $lnk.Save()
-   Invoke-Item "$startup\figma-console-shared.lnk"   # start it now, without logging off
-   ```
-
-   For the REST-backed tools, set `FIGMA_ACCESS_TOKEN` as a user environment
-   variable first; the server inherits it.
-
-2. Point Claude Code at it. Keep the name `figma-console`, and remove any stdio
-   entry of the same name first:
-
-   ```
-   claude mcp remove figma-console -s user
-   claude mcp add --transport http figma-console -s user http://127.0.0.1:9300/mcp
-   ```
-
-The HTTP port must sit outside 9223–9232 and must not be 3845 (Figma's Dev Mode
-MCP server). The endpoint answers on loopback only; set `FIGMA_MCP_HTTP_TOKEN` on
-the server and add `-H "Authorization: Bearer <token>"` to require a token. If
-the server is not running, conversations start without the Figma tools and
-detection falls to Section A.
-
-To stop it: end the `node` process whose command line contains
-`figma-console-mcp`. To undo the Windows setup, delete the shortcut.
+Nothing to configure. One thing to undo: a figma-console you added yourself
+(`claude mcp add figma-console …`) still starts its own server in every
+conversation and takes a port in each. Remove it with
+`claude mcp remove figma-console -s user`; the plugin's provides the same tools.

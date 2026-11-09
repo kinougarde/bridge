@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "figma-console": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/bin/figma-console-relay.js"],
+      "description": "Relay to one figma-console shared by every conversation, started on demand. Holds no port of its own."
+    }
+  }
+}

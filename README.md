@@ -71,13 +71,7 @@ The KB lives in your repo at `bridge-ds/knowledge-base/registries/`. Point your 
 /plugin install bridge-ds@kinougarde-plugins
 ```
 
-**Connect Figma (one-time):** the plugin does not start a Figma MCP server for you. Add figma-console once:
-
-```
-claude mcp add figma-console -s user -e FIGMA_ACCESS_TOKEN=figd_YOUR_TOKEN -- npx -y figma-console-mcp@latest
-```
-
-Each conversation then runs its own server on one port of 9223–9232. If you keep many conversations open, run one shared server instead — see [Setting up figma-console](references/transport-adapter.md#h-setting-up-figma-console).
+The plugin brings its Figma connection (figma-console-mcp) with it: one server shared by all your conversations, started when the first one needs it. Nothing to configure — see [How the plugin runs figma-console](references/transport-adapter.md#h-how-the-plugin-runs-figma-console).
 
 **In your DS repo:**
 

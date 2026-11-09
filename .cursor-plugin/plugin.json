@@ -15,5 +15,6 @@
     "mcp",
     "ai-design"
   ],
-  "skills": "./skills/"
+  "skills": "./skills/",
+  "mcpServers": "./.cursor-plugin/mcp.json"
 }
