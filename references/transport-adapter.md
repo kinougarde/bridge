@@ -30,6 +30,9 @@ Option B — Official Figma MCP (cloud-based, cross-library search):
   Configure via Claude settings or Figma's MCP integration.
 ```
 
+In Claude Code the Bridge plugin already provides the console transport, shared
+by every conversation (Section H); Option A is for clients without the plugin.
+
 ---
 
 ## B. Tool Mapping Table
@@ -212,3 +215,37 @@ These tools are only available on the official transport and provide additional 
 | `generate_figma_design` | Capture a web page into Figma (web-to-Figma) |
 | `get_design_context` | Rich component context with code hints |
 | `get_metadata` | File-level metadata and structure |
+
+---
+
+## H. How the Plugin Runs figma-console
+
+Every figma-console process binds one port of 9223–9232 when it starts, whether
+or not the conversation ever touches Figma, and keeps it until it exits. The
+Desktop Bridge plugin's manifest only reaches that range. Started once per
+conversation, ten open conversations fill it, and any other local tool that
+serves the plugin finds no port.
+
+So the plugin does not start figma-console per conversation. It starts
+`bin/figma-console-relay.js`, which binds no port and forwards the conversation
+to **one figma-console shared by every conversation**:
+
+- The first conversation that needs it starts it — detached, so it outlives
+  that conversation — with MCP over HTTP on `127.0.0.1:9300`
+  (figma-console-mcp ≥ 1.44, `FIGMA_MCP_HTTP_PORT`). The others reuse it. A
+  lock in the temp directory makes conversations opened at the same moment
+  start it once.
+- However many conversations are open, it takes one port of the range.
+- figma-console closes sessions idle for 30 minutes, and the server can be
+  restarted; the relay then replays the conversation's `initialize` and resends
+  the message, so the conversation does not notice.
+- Its log is `bridge-figma-console.log` in the temp directory, rewritten at
+  each start. To stop it, end the `node` process whose command line ends in
+  `figma-console-relay.js --serve`; the next conversation starts a new one.
+- `BRIDGE_FIGMA_HTTP_PORT` moves the HTTP port. It must sit outside 9223–9232
+  and must not be 3845 (Figma's Dev Mode MCP server).
+
+Nothing to configure. One thing to undo: a figma-console you added yourself
+(`claude mcp add figma-console …`) still starts its own server in every
+conversation and takes a port in each. Remove it with
+`claude mcp remove figma-console -s user`; the plugin's provides the same tools.

@@ -71,6 +71,8 @@ The KB lives in your repo at `bridge-ds/knowledge-base/registries/`. Point your 
 /plugin install bridge-ds@kinougarde-plugins
 ```
 
+The plugin brings its Figma connection (figma-console-mcp) with it: one server shared by all your conversations, started when the first one needs it. Nothing to configure — see [How the plugin runs figma-console](references/transport-adapter.md#h-how-the-plugin-runs-figma-console).
+
 **In your DS repo:**
 
 ```

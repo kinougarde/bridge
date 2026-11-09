@@ -2,6 +2,37 @@
 
 All notable changes to Bridge DS are documented here.
 
+## [7.7.0] — 2026-11-09
+
+### Fixed
+
+- **Open conversations no longer fill the Figma port range.** The plugin
+  started a figma-console server in every conversation that loaded Bridge, and
+  each one bound a port of 9223–9232 at startup, whether or not the
+  conversation used Figma. The Desktop Bridge plugin's manifest only reaches
+  that range: with ten conversations open it was full, and any other local tool
+  serving the plugin found no port. The only way out was to close
+  conversations or kill their servers by hand.
+
+  The plugin now starts a relay instead (`bin/figma-console-relay.js`). It
+  binds no port and forwards the conversation to one figma-console shared by
+  every conversation: started detached by the first one that needs it, serving
+  MCP over HTTP on `127.0.0.1:9300` (figma-console-mcp ≥ 1.44), reused by the
+  others. Ten conversations now take one port of the range. Conversations
+  opened at the same moment start it once (a lock in the temp directory), and
+  when the server drops an idle session or restarts, the relay re-initializes
+  transparently. Measured: three conversations started at once got 130 tools
+  each and a working `figma_get_status`, one server started, one port taken,
+  and the server stayed up after they closed.
+
+  Nothing to do on update. If you also added figma-console yourself with
+  `claude mcp add`, remove it: it still starts a server, and takes a port, in
+  every conversation. The MCP config moves to `.claude-plugin/mcp.json`, so the
+  repo root no longer has a `.mcp.json` that Claude Code reads as project
+  config. Cursor keeps the previous direct server (`.cursor-plugin/mcp.json`):
+  the relay relies on `${CLAUDE_PLUGIN_ROOT}` and was only tested in Claude
+  Code. See `references/transport-adapter.md` Section H.
+
 ## [7.6.2] — 2026-08-31
 
 ### Fixed

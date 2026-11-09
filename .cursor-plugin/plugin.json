@@ -1,7 +1,7 @@
 {
   "name": "bridge-ds",
   "displayName": "Bridge Design System",
-  "version": "7.6.2",
+  "version": "7.7.0",
   "description": "Compiler-driven design generation in Figma — declarative scene graphs compiled into DS-native Figma designs.",
   "author": {
     "name": "MOULAY Alexandre"
@@ -16,5 +16,5 @@
     "ai-design"
   ],
   "skills": "./skills/",
-  "mcpServers": "./.mcp.json"
+  "mcpServers": "./.cursor-plugin/mcp.json"
 }
