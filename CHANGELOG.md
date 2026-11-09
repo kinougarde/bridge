@@ -2,6 +2,31 @@
 
 All notable changes to Bridge DS are documented here.
 
+## [7.7.0] — 2026-11-06
+
+### Changed
+
+- **The plugin no longer starts figma-console.** `plugin.json` (Claude Code
+  and Cursor) declared `.mcp.json`, so every conversation that loaded Bridge
+  started a figma-console server, and each one bound a port of 9223–9232 at
+  startup whether or not the conversation used Figma. With ten conversations
+  open the range was full, and any other local tool serving the Desktop Bridge
+  plugin — whose manifest only reaches that range — found no port. When the
+  user had also added figma-console themselves, as the transport reference
+  tells them to, a single conversation started two servers and took two ports.
+
+  `.mcp.json` is removed. figma-console is now configured once by the user, in
+  the setup that fits: per conversation, per project, or one shared server over
+  HTTP that every conversation connects to (figma-console-mcp ≥ 1.44,
+  `FIGMA_MCP_HTTP_PORT`) and that takes one port in total. All three are
+  documented in `references/transport-adapter.md` Section H, with a Windows
+  logon launcher for the shared server.
+
+  **Action needed** if you relied on the plugin's server: run
+  `claude mcp add figma-console -s user -- npx -y figma-console-mcp@latest`
+  once (or the shared setup). Without it, Bridge reports that no transport is
+  configured and prints the same command.
+
 ## [7.6.2] — 2026-08-31
 
 ### Fixed

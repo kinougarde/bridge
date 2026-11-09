@@ -8,7 +8,7 @@ const extract_js_1 = require("./extract.js");
 const orchestrator_js_1 = require("../cron/orchestrator.js");
 const migrate_js_1 = require("./migrate.js");
 const lint_js_1 = require("./lint.js");
-exports.VERSION = "7.6.2";
+exports.VERSION = "7.7.0";
 function printHelp() {
     console.log(`
 bridge-ds v${exports.VERSION} — compiler-driven design system
