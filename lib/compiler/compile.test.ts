@@ -10,6 +10,7 @@ import * as path from "node:path";
 
 import { compile } from "./compile.js";
 import type { CompileOptions } from "./compile.js";
+import { IMPORT_TIMEOUT_MS } from "./helpers.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -332,5 +333,55 @@ test("find.nth must be a non-negative integer", () => {
     );
   } finally {
     kb.cleanup();
+  }
+});
+
+test("every chunk declares a timeout longer than one library import, and parses", () => {
+  const kb = writeTempKb();
+  try {
+    const result = compile({ input: validSceneGraph(), kbPath: kb.kbPath, transport: "console" });
+    assert.equal(result.success, true, JSON.stringify(result.errors));
+    for (const chunk of result.chunks) {
+      assert.ok(
+        chunk.timeoutMs > IMPORT_TIMEOUT_MS,
+        "chunk " + chunk.id + " must outlast one import, so the import error arrives first"
+      );
+      assert.doesNotThrow(() => new Function("figma", chunk.code), "chunk " + chunk.id);
+    }
+  } finally {
+    kb.cleanup();
+  }
+});
+
+test("a compiled chunk reports a stuck library import by key and name", async () => {
+  const kb = writeTempKb();
+  try {
+    const result = compile({ input: validSceneGraph(), kbPath: kb.kbPath, transport: "console" });
+    assert.equal(result.success, true, JSON.stringify(result.errors));
+    const chunk = result.chunks[0]!;
+
+    // Shorten the per-import timeout so the test does not wait 30 s.
+    const marker = "], " + IMPORT_TIMEOUT_MS + ");";
+    assert.ok(chunk.code.includes(marker), "the chunk passes IMPORT_TIMEOUT_MS to importAll");
+    const code = chunk.code.replace(marker, "], 20);");
+
+    const hang = (): Promise<never> => new Promise(() => {});
+    const figma = {
+      loadFontAsync: () => Promise.resolve(),
+      variables: { importVariableByKeyAsync: hang },
+      importComponentByKeyAsync: hang,
+      importStyleByKeyAsync: hang,
+    };
+    const run = new Function("figma", code) as (f: unknown) => Promise<unknown>;
+
+    await assert.rejects(run(figma), (err: Error) => {
+      assert.match(err.message, /library imports failed/);
+      assert.match(err.message, /VariableID:1:1 \(color\/bg\/primary\): no answer/);
+      assert.match(err.message, /Close and reopen the Desktop Bridge plugin/);
+      return true;
+    });
+  } finally {
+    kb.cleanup();
+    delete (globalThis as { __bridgeImports?: unknown }).__bridgeImports;
   }
 });

@@ -348,8 +348,11 @@ For each output chunk from the compiler:
 
 **Console transport:**
 ```
-figma_execute({ code: "{chunk.code}" })
+figma_execute({ code: "{chunk.code}", timeout: {chunk.timeoutMs} })
 ```
+
+Always pass `timeout`. Without it figma-console stops waiting after 5 s, while
+the chunk keeps running in Figma.
 
 **Official transport:**
 ```
@@ -364,6 +367,18 @@ Execute chunks sequentially. If a chunk fails:
 1. Read the error
 2. Report to user
 3. Attempt fix if the error is clear (e.g., font not loaded, component not found)
+
+Two failures must not be retried as-is:
+
+- **`bridge: N of M library imports failed` … `Close and reopen the Desktop
+  Bridge plugin`.** Figma stopped answering a library import, and it cannot be
+  cancelled: a retry waits on the same pending import. Report the listed keys
+  and names, ask the user to close and reopen the Desktop Bridge plugin in
+  Figma, then run the chunk again. Without the reopen hint, the error is
+  Figma's own answer for that key (unpublished, no access): fix the key, not
+  the plugin.
+- **`Execution timed out`.** The chunk may still be running in Figma. Re-running
+  a build chunk then builds its nodes twice — take a screenshot first.
 
 ### D6. Take screenshot
 

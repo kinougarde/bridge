@@ -8,7 +8,7 @@ import { resolve } from "./resolve.js";
 import { validate } from "./validate.js";
 import { plan } from "./plan.js";
 import { generateCode } from "./codegen.js";
-import { fontLoader } from "./helpers.js";
+import { CHUNK_TIMEOUT_MS, fontLoader } from "./helpers.js";
 import { wrapChunk, wrapConsole, wrapOfficial } from "./wrap.js";
 import { CompilerError } from "./errors.js";
 import { runLintAtCompileTime } from "../lint/compile-bridge.js";
@@ -37,6 +37,8 @@ export interface CompiledChunk {
   id: string;
   code: string;
   description: string;
+  /** Execution timeout to pass to `figma_execute` (its `timeout` argument). */
+  timeoutMs: number;
 }
 
 export interface CompilePlanSummary {
@@ -323,6 +325,7 @@ function compileLegacy(options: CompileOptions): CompileResult {
         id: chunk.label,
         code: wrappedCode,
         description,
+        timeoutMs: CHUNK_TIMEOUT_MS,
       });
     }
   } catch (err) {

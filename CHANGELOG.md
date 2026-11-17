@@ -2,6 +2,33 @@
 
 All notable changes to Bridge DS are documented here.
 
+## [7.7.1] — 2026-11-17
+
+### Fixed
+
+- **A stuck library import is now named, not silent.** The preload fetches
+  every DS component, variable and style with `figma.import…ByKeyAsync`, which
+  goes through Figma's servers even when the library is enabled in the file.
+  Figma sometimes stops answering these imports for the rest of the plugin
+  session, and cannot cancel them. The preload ran them in one `Promise.all`
+  with no bound of its own, and the skill called `figma_execute` without a
+  `timeout`, so figma-console gave up after 5 s with a bare
+  `Execution timed out`: no key, no type, and the imports still pending in
+  Figma. Each retry restarted all of them on top of the stuck ones. Only
+  reopening the Desktop Bridge plugin cleared it.
+
+  Imports now go through an `importAll` helper emitted with the chunk. Each
+  import is bounded (30 s); every failure is reported together with its method,
+  key, name and how long it has been pending; and when one is stuck, the error
+  says to reopen the Desktop Bridge plugin. Imports are cached by key for the
+  plugin session, pending ones included, so a retry waits on the import already
+  in flight instead of stacking another. Compiled chunks now carry `timeoutMs`
+  (60 s), which the skill passes to `figma_execute`; it outlasts one import, so
+  the named error arrives before the generic timeout.
+
+  This does not stop Figma from hanging, and a plugin cannot reopen itself:
+  reopening it stays a manual step.
+
 ## [7.7.0] — 2026-11-09
 
 ### Fixed

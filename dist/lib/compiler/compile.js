@@ -204,6 +204,7 @@ function compileLegacy(options) {
                 id: chunk.label,
                 code: wrappedCode,
                 description,
+                timeoutMs: helpers_js_1.CHUNK_TIMEOUT_MS,
             });
         }
     }

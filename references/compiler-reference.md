@@ -225,7 +225,10 @@ bridge-ds compile --input <json-file> --kb <kb-path> --transport <console|offici
 
 *(Equivalent: `node dist/lib/compiler/cli.js ...` after `npm run build`.)*
 
-**Output:** JSON array of `{ id, code, description }` chunks to stdout.
+**Output:** JSON array of `{ id, code, description, timeoutMs }` chunks to stdout. Pass
+`timeoutMs` as the `timeout` of `figma_execute`: it outlasts the per-import timeout (30 s), so a
+library import Figma stopped answering is reported by key and name instead of as a generic
+execution timeout.
 **Errors:** Structured errors to stderr with fuzzy suggestions for unresolved tokens/components.
 
 ### Pipeline

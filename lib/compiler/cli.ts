@@ -143,6 +143,7 @@ export async function runCompileCli(argv: readonly string[]): Promise<void> {
         label: c.id,
         file: `chunk-${idx}-${c.id}.js`,
         description: c.description,
+        timeoutMs: c.timeoutMs,
       })),
       transport: args.transport,
       totalChunks: result.plan?.totalChunks,

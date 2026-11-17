@@ -57,13 +57,16 @@ by every conversation (Section H); Option A is for clients without the plugin.
 IIFE wrapper is **mandatory**. The `return` before the IIFE is required.
 
 ```javascript
-// Console: figma_execute({ code: "..." })
+// Console: figma_execute({ code: "...", timeout: chunk.timeoutMs })
 return (async function() {
   await figma.loadFontAsync({ family: "Inter", style: "Regular" });
   // ... Plugin API code ...
   return { success: true };
 })();
 ```
+
+Pass the chunk's `timeoutMs` as `timeout`. figma-console's default is 5 s, and a timeout only
+stops the waiting: Figma cannot interrupt a running plugin script, so the chunk keeps running.
 
 ### Official transport (use_figma)
 

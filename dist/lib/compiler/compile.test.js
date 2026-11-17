@@ -45,6 +45,7 @@ const node_fs_1 = require("node:fs");
 const os = __importStar(require("node:os"));
 const path = __importStar(require("node:path"));
 const compile_js_1 = require("./compile.js");
+const helpers_js_1 = require("./helpers.js");
 function writeTempKb() {
     const root = (0, node_fs_1.mkdtempSync)(path.join(os.tmpdir(), "bridge-compile-test-"));
     const regs = path.join(root, "knowledge-base", "registries");
@@ -319,6 +320,50 @@ function instanceGraph(overrides) {
     }
     finally {
         kb.cleanup();
+    }
+});
+(0, node_test_1.test)("every chunk declares a timeout longer than one library import, and parses", () => {
+    const kb = writeTempKb();
+    try {
+        const result = (0, compile_js_1.compile)({ input: validSceneGraph(), kbPath: kb.kbPath, transport: "console" });
+        strict_1.default.equal(result.success, true, JSON.stringify(result.errors));
+        for (const chunk of result.chunks) {
+            strict_1.default.ok(chunk.timeoutMs > helpers_js_1.IMPORT_TIMEOUT_MS, "chunk " + chunk.id + " must outlast one import, so the import error arrives first");
+            strict_1.default.doesNotThrow(() => new Function("figma", chunk.code), "chunk " + chunk.id);
+        }
+    }
+    finally {
+        kb.cleanup();
+    }
+});
+(0, node_test_1.test)("a compiled chunk reports a stuck library import by key and name", async () => {
+    const kb = writeTempKb();
+    try {
+        const result = (0, compile_js_1.compile)({ input: validSceneGraph(), kbPath: kb.kbPath, transport: "console" });
+        strict_1.default.equal(result.success, true, JSON.stringify(result.errors));
+        const chunk = result.chunks[0];
+        // Shorten the per-import timeout so the test does not wait 30 s.
+        const marker = "], " + helpers_js_1.IMPORT_TIMEOUT_MS + ");";
+        strict_1.default.ok(chunk.code.includes(marker), "the chunk passes IMPORT_TIMEOUT_MS to importAll");
+        const code = chunk.code.replace(marker, "], 20);");
+        const hang = () => new Promise(() => { });
+        const figma = {
+            loadFontAsync: () => Promise.resolve(),
+            variables: { importVariableByKeyAsync: hang },
+            importComponentByKeyAsync: hang,
+            importStyleByKeyAsync: hang,
+        };
+        const run = new Function("figma", code);
+        await strict_1.default.rejects(run(figma), (err) => {
+            strict_1.default.match(err.message, /library imports failed/);
+            strict_1.default.match(err.message, /VariableID:1:1 \(color\/bg\/primary\): no answer/);
+            strict_1.default.match(err.message, /Close and reopen the Desktop Bridge plugin/);
+            return true;
+        });
+    }
+    finally {
+        kb.cleanup();
+        delete globalThis.__bridgeImports;
     }
 });
 //# sourceMappingURL=compile.test.js.map
