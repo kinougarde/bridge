@@ -160,6 +160,7 @@ async function runCompileCli(argv) {
                 label: c.id,
                 file: `chunk-${idx}-${c.id}.js`,
                 description: c.description,
+                timeoutMs: c.timeoutMs,
             })),
             transport: args.transport,
             totalChunks: result.plan?.totalChunks,

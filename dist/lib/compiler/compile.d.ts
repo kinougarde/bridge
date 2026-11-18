@@ -17,6 +17,8 @@ export interface CompiledChunk {
     id: string;
     code: string;
     description: string;
+    /** Execution timeout to pass to `figma_execute` (its `timeout` argument). */
+    timeoutMs: number;
 }
 export interface CompilePlanSummary {
     totalChunks: number;

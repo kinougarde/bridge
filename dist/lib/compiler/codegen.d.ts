@@ -15,7 +15,11 @@ export declare function importVarName(entry: ImportEntry | ResolvedToken, seen: 
 /**
  * Generate import statements for variables, components, and styles.
  * `importNames` is mutated to accumulate `key → varName` mappings.
- * Multiple imports are batched into a single Promise.all for performance.
+ *
+ * Every import goes through the `importAll` runtime helper (IMPORT_HELPER),
+ * emitted alongside: imports still run in parallel, but each one is bounded by
+ * IMPORT_TIMEOUT_MS, cached by key across retries, and reported by key and
+ * name when it fails.
  */
 export declare function emitImports(imports: ImportBundle, importNames: Map<string, string>, bridgePrefix: string | null): string;
 /**

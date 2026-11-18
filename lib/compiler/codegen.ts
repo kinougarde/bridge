@@ -3,6 +3,7 @@
 // ---------------------------------------------------------------------------
 
 import type { Chunk } from "./plan.js";
+import { IMPORT_HELPER, IMPORT_TIMEOUT_MS } from "./helpers.js";
 import type {
   ImportBundle,
   ImportEntry,
@@ -89,7 +90,11 @@ export function importVarName(
 /**
  * Generate import statements for variables, components, and styles.
  * `importNames` is mutated to accumulate `key → varName` mappings.
- * Multiple imports are batched into a single Promise.all for performance.
+ *
+ * Every import goes through the `importAll` runtime helper (IMPORT_HELPER),
+ * emitted alongside: imports still run in parallel, but each one is bounded by
+ * IMPORT_TIMEOUT_MS, cached by key across retries, and reported by key and
+ * name when it fails.
  */
 export function emitImports(
   imports: ImportBundle,
@@ -102,40 +107,51 @@ export function emitImports(
   const comps = imports.components ?? [];
   const styles = imports.textStyles ?? [];
 
-  // Build (varName, importExpr) pairs in a stable order. importVarName mutates
-  // importNames (key→varName) — that side-effect must run for every entry.
-  const pairs: Array<{ name: string; expr: string }> = [];
+  // Build entries in a stable order. importVarName mutates importNames
+  // (key→varName) — that side-effect must run for every entry.
+  const entries: Array<{ name: string; method: string; key: string; label: string }> = [];
 
   for (const v of vars) {
-    pairs.push({
+    entries.push({
       name: importVarName(v, importNames),
-      expr: "figma.variables.importVariableByKeyAsync(" + JSON.stringify(v.key) + ")",
+      method: "importVariableByKeyAsync",
+      key: v.key,
+      label: v.name || v.ref || v.key,
     });
   }
   for (const c of comps) {
-    const method = c.importMethod ?? "importComponentByKeyAsync";
-    pairs.push({
+    entries.push({
       name: importVarName(c, importNames),
-      expr: "figma." + method + "(" + JSON.stringify(c.key) + ")",
+      method: c.importMethod ?? "importComponentByKeyAsync",
+      key: c.key,
+      label: c.name || c.ref || c.key,
     });
   }
   for (const s of styles) {
-    const method = s.importMethod ?? "importStyleByKeyAsync";
-    pairs.push({
+    entries.push({
       name: importVarName(s, importNames),
-      expr: "figma." + method + "(" + JSON.stringify(s.key) + ")",
+      method: s.importMethod ?? "importStyleByKeyAsync",
+      key: s.key,
+      label: s.name || s.ref || s.key,
     });
   }
 
-  if (pairs.length === 0) return "";
+  if (entries.length === 0) return "";
 
-  if (pairs.length === 1) {
-    return bp + "var " + pairs[0]!.name + " = await " + pairs[0]!.expr + ";";
-  }
-
-  const names = pairs.map((p) => p.name).join(", ");
-  const exprs = pairs.map((p) => "  " + p.expr).join(",\n");
-  return bp + "var [" + names + "] = await Promise.all([\n" + exprs + ",\n]);";
+  const names = entries.map((e) => e.name).join(", ");
+  const items = entries.map((e) => "  " + JSON.stringify([e.method, e.key, e.label])).join(",\n");
+  return (
+    IMPORT_HELPER +
+    "\n" +
+    bp +
+    "var [" +
+    names +
+    "] = await importAll([\n" +
+    items +
+    ",\n], " +
+    IMPORT_TIMEOUT_MS +
+    ");"
+  );
 }
 
 // ---------------------------------------------------------------------------
